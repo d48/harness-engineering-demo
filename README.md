@@ -36,6 +36,21 @@ or launch it with:
 npm run slides
 ```
 
+### Public URL (GitHub Pages)
+
+A workflow at `.github/workflows/pages.yml` deploys the `slides/` folder to
+GitHub Pages on every push to `main`. One-time setup (not scriptable from
+outside the GitHub UI): in the repo, go to **Settings → Pages → Build and
+deployment → Source**, and select **GitHub Actions**. After that, every push
+to `main` that touches `slides/` redeploys automatically, and the deck is
+available at:
+
+```
+https://<owner>.github.io/<repo>/
+```
+
+(`slides/index.html` redirects the bare URL straight to `harness-slides.html`.)
+
 ## The demos
 
 Each demo maps to a section of the article. The "model" in demos 1–3 is a
