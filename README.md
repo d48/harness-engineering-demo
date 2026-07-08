@@ -9,12 +9,23 @@ road to recursive self-improvement (RSI).
 ## Quick start
 
 Requires only Python 3.10+ (stdlib only — no packages, no API keys, no network).
+`npm install` is not required — `package.json` just wraps the Python entry point
+for convenience.
 
 ```bash
 python3 demo/run.py            # interactive menu
 python3 demo/run.py 1          # run one demo
 python3 demo/run.py all        # run everything
 python3 demo/run.py all --fast # skip the dramatic pauses (smoke test)
+```
+
+or, equivalently, via npm:
+
+```bash
+npm run demo        # interactive menu
+npm run demo:1       # run demo 1 (demo:2 … demo:5 also available)
+npm run demo:all     # run everything
+npm run demo:all -- --fast   # extra flags go after `--`
 ```
 
 Open `slides/harness-slides.html` in a browser for the presentation
