@@ -147,6 +147,8 @@ aside.notes { display: none; }
 .title-slide .eyebrow { font-size: 13px; }
 .byline { margin-top: 26px; font-family: var(--mono); font-size: 13px; color: var(--muted); line-height: 1.8; }
 .byline b { color: var(--cyan); font-weight: 500; }
+.byline a { color: var(--amber); font-weight: 500; text-decoration: none; border-bottom: 1px solid rgba(232,163,61,.4); }
+.byline a:hover, .byline a:focus-visible { border-bottom-color: var(--amber); }
 blockquote {
   border-left: 3px solid var(--cyan); padding: 4px 0 4px 20px;
   font-size: 19px; line-height: 1.5; font-style: italic; max-width: 58ch; color: var(--text);
@@ -191,9 +193,10 @@ blockquote footer { font-style: normal; font-family: var(--mono); font-size: 12p
   <div class="eyebrow">A walkthrough of Lilian Weng's essay · Lil'Log · July 2026</div>
   <h1>Harness Engineering<br>for Self-Improvement</h1>
   <p class="lede" style="margin-top:18px">The system <em>around</em> the model is becoming the thing we optimize — and the road to recursive self-improvement runs through it.</p>
-  <div class="byline">source: <b>lilianweng.github.io/posts/2026-07-04-harness</b><br>hands-on companion: <b>python3 demo/run.py</b> — five live demos, zero dependencies</div>
+  <div class="byline">source: <b>lilianweng.github.io/posts/2026-07-04-harness</b><br>code + slides: <a href="https://github.com/d48/harness-engineering-demo" target="_blank" rel="noopener">github.com/d48/harness-engineering-demo</a><br>clone it: <b>git clone https://github.com/d48/harness-engineering-demo</b> — five live demos, zero dependencies</div>
   <aside class="notes">
     <p>Framing for the audience: this is not a talk about prompt tricks. It's about the engineering layer that turned raw LLMs into products like Claude Code and Codex — and why that layer, the harness, is now itself the object of optimization.</p>
+    <p>Point people at the repo now if you want them following along live: github.com/d48/harness-engineering-demo — stdlib-only Python, no API keys needed to run any of the five demos.</p>
     <p>Everything marked "live demo" is runnable from this repo with plain Python — no API keys. Feel free to alt-tab to the terminal at each chip.</p>
   </aside>
 </section>
@@ -796,7 +799,7 @@ repeat:
 <section class="slide" data-eyebrow="takeaways">
   <div class="eyebrow">Takeaways for working engineers</div>
   <h2>What to steal for your own systems</h2>
-  <ul class="points" style="font-size:17px">
+  <ul class="points" style="font-size:15px; gap:6px; line-height:1.35">
     <li><strong>Build the loop first.</strong> Plan → act → observe → improve, with verification inside the loop — the loop enforces honesty, not the model.</li>
     <li><strong>Put state on disk.</strong> Context is working memory; anything worth keeping goes to files the next session can read.</li>
     <li><strong>Fan out through files.</strong> Sub-agents that report via artifacts stay inspectable; transcripts don't.</li>
@@ -804,9 +807,10 @@ repeat:
     <li><strong>Keep evaluators outside the blast radius.</strong> Whatever the loop optimizes, the judge must not be editable by it.</li>
     <li><strong>Expect the ladder to keep climbing.</strong> Today you tune prompts; next quarter, the thing tuning the prompts.</li>
   </ul>
-  <div class="byline" style="margin-top:20px">article: <b>lilianweng.github.io/posts/2026-07-04-harness</b> · demos: <b>python3 demo/run.py all</b></div>
+  <div class="byline" style="margin-top:6px; line-height:1.4">article: <b>lilianweng.github.io/posts/2026-07-04-harness</b> · code: <a href="https://github.com/d48/harness-engineering-demo" target="_blank" rel="noopener">github.com/d48/harness-engineering-demo</a></div>
   <aside class="notes">
     <p>Close by connecting to the room: everyone here already owns a harness, whether they call it that or not — CI, cron jobs, review gates around an LLM feature. The article's patterns are a checklist for hardening it.</p>
+    <p>Send people to the repo before they leave the room: github.com/d48/harness-engineering-demo. Everything runs locally off the standard library — no signup, no API key, no cloud dependency — so there's zero friction between "I want to try this" and actually running it.</p>
     <p>Q&A seeds: Where would a held-out gate live in our pipeline? What's our equivalent of NOTES.md? Which of our eval signals could be reward-hacked?</p>
   </aside>
 </section>
