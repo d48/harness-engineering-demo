@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harness Engineering — a walkthrough</title>
+<style>
+:root {
+  --ground: #10141C;
+  --panel: #1A2029;
+  --panel-2: #222A36;
+  --line: #313B4A;
+  --text: #E8E6DF;
+  --muted: #8B93A1;
+  --amber: #E8A33D;
+  --cyan: #5FB4C9;
+  --good: #6FBF73;
+  --bad: #D9705F;
+  --sans: "Avenir Next", "Avenir", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --serif: "Charter", "Iowan Old Style", Georgia, serif;
+  --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--serif);
+  overflow: hidden;
+}
+#stage {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(1100px 700px at 78% -10%, rgba(95,180,201,.055), transparent 60%);
+}
+.slide {
+  width: 960px; height: 540px;
+  padding: 52px 64px 60px;
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  transform: scale(var(--scale, 1));
+}
+.slide.active { display: flex; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 10px;
+}
+h1 {
+  font-family: var(--sans); font-weight: 700; font-size: 52px;
+  line-height: 1.08; letter-spacing: -.015em; text-wrap: balance;
+}
+h2 {
+  font-family: var(--sans); font-weight: 700; font-size: 30px;
+  line-height: 1.15; letter-spacing: -.01em; text-wrap: balance;
+  margin-bottom: 20px;
+}
+p, li { font-size: 17px; line-height: 1.5; }
+.lede { font-size: 20px; color: var(--muted); max-width: 40ch; }
+ul.points { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+ul.points li { padding-left: 20px; position: relative; max-width: 62ch; }
+ul.points li::before {
+  content: ""; position: absolute; left: 0; top: .55em;
+  width: 8px; height: 2px; background: var(--amber);
+}
+strong { color: var(--amber); font-weight: 600; }
+em { font-style: italic; color: var(--cyan); }
+.cols { display: flex; gap: 36px; flex: 1; min-height: 0; align-items: stretch; }
+.col { flex: 1; min-width: 0; }
+.col.narrow { flex: 0 0 340px; }
+.diagram { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.diagram svg { max-width: 100%; max-height: 100%; }
+svg text { font-family: var(--mono); fill: var(--text); }
+svg .lbl { font-size: 12.5px; }
+svg .sm { font-size: 10.5px; fill: var(--muted); }
+svg .acc { fill: var(--amber); }
+svg .cy { fill: var(--cyan); }
+svg .box { fill: var(--panel); stroke: var(--line); rx: 6; }
+svg .boxa { fill: var(--panel-2); stroke: var(--amber); rx: 6; }
+svg .boxc { fill: var(--panel-2); stroke: var(--cyan); rx: 6; }
+svg .wire { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .wirea { stroke: var(--amber); stroke-width: 1.6; fill: none; }
+svg .wirec { stroke: var(--cyan); stroke-width: 1.6; fill: none; }
+svg .wireg { stroke: var(--good); stroke-width: 1.6; fill: none; }
+svg .wireb { stroke: var(--bad); stroke-width: 1.6; fill: none; }
+.demo-chip {
+  margin-top: auto; align-self: flex-start;
+  font-family: var(--mono); font-size: 13px;
+  background: var(--panel-2); border: 1px solid var(--amber);
+  border-radius: 4px; padding: 8px 14px; color: var(--amber);
+}
+.demo-chip::before { content: "▶ live demo  "; color: var(--muted); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: 15px; }
+.kv dt { font-family: var(--mono); color: var(--cyan); font-size: 13px; padding-top: 2px; }
+.kv dd { color: var(--text); max-width: 52ch; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--line);
+}
+td { padding: 7px 14px 7px 0; border-bottom: 1px solid rgba(49,59,74,.5); vertical-align: top; }
+td.mono, .mono { font-family: var(--mono); font-size: 13px; }
+td.mono { color: var(--cyan); white-space: nowrap; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.foot {
+  position: absolute; left: 64px; right: 64px; bottom: 22px;
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .08em;
+}
+aside.notes { display: none; }
+#notes {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: rgba(16,20,28,.97); border-top: 2px solid var(--amber);
+  padding: 18px 48px 22px; max-height: 38vh; overflow-y: auto;
+  font-family: var(--sans); font-size: 15px; line-height: 1.55; color: var(--text);
+  display: none;
+}
+#notes.open { display: block; }
+#notes .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .15em; color: var(--amber); text-transform: uppercase; display: block; margin-bottom: 8px; }
+#notes p + p { margin-top: 8px; }
+#overview {
+  position: fixed; inset: 0; z-index: 40; background: rgba(16,20,28,.98);
+  display: none; overflow-y: auto; padding: 48px;
+}
+#overview.open { display: block; }
+#overview .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+#overview .card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 14px 16px; cursor: pointer; font-family: var(--sans);
+}
+#overview .card:hover, #overview .card:focus { border-color: var(--amber); outline: none; }
+#overview .card .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+#overview .card .e { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); margin: 6px 0 4px; }
+#overview .card .t { font-size: 15px; font-weight: 600; line-height: 1.25; }
+#hud {
+  position: fixed; right: 20px; bottom: 14px; z-index: 20;
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+}
+#bar { position: fixed; left: 0; bottom: 0; height: 3px; background: var(--amber); z-index: 25; transition: width .2s ease; }
+#help {
+  position: fixed; left: 20px; bottom: 14px; z-index: 20;
+  font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .05em;
+}
+.title-slide { justify-content: center; }
+.title-slide .eyebrow { font-size: 13px; }
+.byline { margin-top: 26px; font-family: var(--mono); font-size: 13px; color: var(--muted); line-height: 1.8; }
+.byline b { color: var(--cyan); font-weight: 500; }
+blockquote {
+  border-left: 3px solid var(--cyan); padding: 4px 0 4px 20px;
+  font-size: 19px; line-height: 1.5; font-style: italic; max-width: 58ch; color: var(--text);
+}
+blockquote footer { font-style: normal; font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 10px; }
+.ladder li { max-width: none; }
+.badpill, .goodpill {
+  display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 3px;
+  padding: 1px 7px; vertical-align: 1px;
+}
+.badpill { color: var(--bad); border: 1px solid var(--bad); }
+.goodpill { color: var(--good); border: 1px solid var(--good); }
+.codebox {
+  font-family: var(--mono); font-size: 13px; line-height: 1.6;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 14px 18px; overflow-x: auto; white-space: pre;
+}
+.codebox .c { color: var(--muted); }
+.codebox .a { color: var(--amber); }
+.codebox .g { color: var(--good); }
+@media (prefers-reduced-motion: reduce) {
+  #bar { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="ar-m" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#8B93A1"/></marker>
+    <marker id="ar-a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#E8A33D"/></marker>
+    <marker id="ar-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#5FB4C9"/></marker>
+    <marker id="ar-g" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#6FBF73"/></marker>
+    <marker id="ar-b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#D9705F"/></marker>
+  </defs>
+</svg>
+
+<div id="stage">
+
+<!-- 1 · TITLE -->
+<section class="slide title-slide" data-eyebrow="lil'log · july 2026">
+  <div class="eyebrow">A walkthrough of Lilian Weng's essay · Lil'Log · July 2026</div>
+  <h1>Harness Engineering<br>for Self-Improvement</h1>
+  <p class="lede" style="margin-top:18px">The system <em>around</em> the model is becoming the thing we optimize — and the road to recursive self-improvement runs through it.</p>
+  <div class="byline">source: <b>lilianweng.github.io/posts/2026-07-04-harness</b><br>hands-on companion: <b>python3 demo/run.py</b> — five live demos, zero dependencies</div>
+  <aside class="notes">
+    <p>Framing for the audience: this is not a talk about prompt tricks. It's about the engineering layer that turned raw LLMs into products like Claude Code and Codex — and why that layer, the harness, is now itself the object of optimization.</p>
+    <p>Everything marked "live demo" is runnable from this repo with plain Python — no API keys. Feel free to alt-tab to the terminal at each chip.</p>
+  </aside>
+</section>
+
+<!-- 2 · WHY -->
+<section class="slide" data-eyebrow="why this matters">
+  <div class="eyebrow">Why this matters</div>
+  <h2>Recursive self-improvement is an old idea with a new bottleneck</h2>
+  <div class="cols">
+    <div class="col">
+      <blockquote>“An ultraintelligent machine could design even better machines… the intelligence of man would be left far behind.”
+        <footer>— I. J. Good, “Speculations Concerning the First Ultraintelligent Machine”, 1965</footer>
+      </blockquote>
+      <ul class="points" style="margin-top:22px">
+        <li>Modern RSI isn't just "model trains a better model" — it includes the model improving its own <strong>training pipelines and deployment systems</strong>.</li>
+        <li>The same base model performs wildly differently depending on the system wrapped around it.</li>
+      </ul>
+    </div>
+    <div class="col narrow">
+      <div class="codebox">product ≈ model × harness
+
+<span class="c"># same weights, different harness:</span>
+chat completion   <span class="c">→ toy</span>
+Claude Code       <span class="a">→ ships PRs</span>
+auto-research     <span class="a">→ runs experiments</span></div>
+      <p style="margin-top:16px; font-size:15px; color:var(--muted)">Weng's claim: near-term self-improvement gains come as much from <em>harness engineering</em> as from raw intelligence.</p>
+    </div>
+  </div>
+  <aside class="notes">
+    <p>I. J. Good's 1965 "intelligence explosion" framing is the classic RSI story. Weng's update: before models retrain themselves, there's a nearer rung — models improving the scaffolding they run in.</p>
+    <p>Point at the equation: everyone in the room has felt this — GPT-class weights in a chat box vs the same weights inside a coding agent are different products entirely. That delta IS the harness.</p>
+  </aside>
+</section>
+
+<!-- 3 · WHAT IS A HARNESS -->
+<section class="slide" data-eyebrow="definition">
+  <div class="eyebrow">Definition</div>
+  <h2>The harness is everything around the weights</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 330">
+      <rect x="330" y="125" width="200" height="80" class="boxa"/>
+      <text x="430" y="160" text-anchor="middle" class="lbl acc">base model</text>
+      <text x="430" y="180" text-anchor="middle" class="sm">frozen weights</text>
+
+      <rect x="40" y="30" width="200" height="62" class="box"/>
+      <text x="140" y="56" text-anchor="middle" class="lbl">thinks &amp; plans</text>
+      <text x="140" y="76" text-anchor="middle" class="sm">loop design · reasoning budget</text>
+
+      <rect x="620" y="30" width="200" height="62" class="box"/>
+      <text x="720" y="56" text-anchor="middle" class="lbl">calls tools &amp; acts</text>
+      <text x="720" y="76" text-anchor="middle" class="sm">shell · files · web · MCP</text>
+
+      <rect x="40" y="235" width="200" height="62" class="box"/>
+      <text x="140" y="261" text-anchor="middle" class="lbl">perceives context</text>
+      <text x="140" y="281" text-anchor="middle" class="sm">context assembly &amp; compaction</text>
+
+      <rect x="330" y="248" width="200" height="62" class="box"/>
+      <text x="430" y="274" text-anchor="middle" class="lbl">stores artifacts</text>
+      <text x="430" y="294" text-anchor="middle" class="sm">files · memory · state</text>
+
+      <rect x="620" y="235" width="200" height="62" class="box"/>
+      <text x="720" y="261" text-anchor="middle" class="lbl">evaluates results</text>
+      <text x="720" y="281" text-anchor="middle" class="sm">tests · verifiers · permissions</text>
+
+      <path class="wire" marker-end="url(#ar-m)" d="M200,92 L350,128"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M660,92 L515,128"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M200,238 L348,200"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M430,248 L430,207"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M660,238 L512,200"/>
+      <text x="430" y="22" text-anchor="middle" class="sm">“the system surrounding a base model that orchestrates execution”</text>
+    </svg>
+  </div>
+  <aside class="notes">
+    <p>Weng's definition, nearly verbatim: the harness orchestrates execution and decides how the model thinks and plans, calls tools and acts, perceives and manages context, stores artifacts, and evaluates results.</p>
+    <p>Note the analogy she draws to operating systems: deliberately simple, generic designs that lean on existing software engineering practice — not exotic ML machinery.</p>
+  </aside>
+</section>
+
+<!-- 4 · THEN VS NOW -->
+<section class="slide" data-eyebrow="evolution">
+  <div class="eyebrow">Evolution of the idea</div>
+  <h2>From “agent = LLM + tools” to harness engineering</h2>
+  <div class="cols">
+    <div class="col">
+      <p class="eyebrow" style="color:var(--muted)">2023 — agent frameworks</p>
+      <div class="codebox">agent = LLM
+      + memory
+      + tools
+      + planning
+      + action</div>
+      <p style="margin-top:14px; font-size:15px; color:var(--muted)">Components named, but glue, loops, and failure handling left as an exercise.</p>
+    </div>
+    <div class="col">
+      <p class="eyebrow">2026 — harness engineering adds</p>
+      <ul class="points">
+        <li><strong>Workflow design</strong> — loop engineering: when to plan, act, test, retry.</li>
+        <li><strong>Evaluation</strong> — verifiers wired into the loop, not bolted on after.</li>
+        <li><strong>Permission controls</strong> — what the agent may touch, and when to ask.</li>
+        <li><strong>Persistent state management</strong> — artifacts and memory that outlive the context window.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <p>The 2023 framing (Weng's own famous "LLM Powered Autonomous Agents" post!) enumerated parts. What changed: the connective tissue became the discipline — loop engineering, evaluation, permissions, durable state.</p>
+    <p>Analogy for engineers: 2023 was "here are the nouns"; 2026 is "here is the operating system".</p>
+  </aside>
+</section>
+
+<!-- 5 · PATTERN 1 -->
+<section class="slide" data-eyebrow="pattern 1 / 3">
+  <div class="eyebrow">Design pattern 1 of 3</div>
+  <h2>Workflow automation — the agent loop</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 270">
+      <rect x="30" y="105" width="130" height="56" class="box"/>
+      <text x="95" y="137" text-anchor="middle" class="lbl">task / goal</text>
+
+      <rect x="230" y="105" width="130" height="56" class="boxa"/>
+      <text x="295" y="130" text-anchor="middle" class="lbl acc">plan</text>
+      <text x="295" y="148" text-anchor="middle" class="sm">model turn</text>
+
+      <rect x="430" y="105" width="130" height="56" class="boxc"/>
+      <text x="495" y="130" text-anchor="middle" class="lbl cy">execute</text>
+      <text x="495" y="148" text-anchor="middle" class="sm">tool call · code</text>
+
+      <rect x="630" y="105" width="130" height="56" class="box"/>
+      <text x="695" y="130" text-anchor="middle" class="lbl">observe / test</text>
+      <text x="695" y="148" text-anchor="middle" class="sm">real feedback</text>
+
+      <path class="wire"  marker-end="url(#ar-m)" d="M160,133 L226,133"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M360,133 L426,133"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M560,133 L626,133"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M695,105 C695,40 295,40 295,101"/>
+      <text x="495" y="52" text-anchor="middle" class="sm acc">improve: failures become next turn's context</text>
+      <path class="wireg" marker-end="url(#ar-g)" d="M695,161 L695,215"/>
+      <text x="695" y="238" text-anchor="middle" class="lbl" fill="#6FBF73">goal verifiably met → done</text>
+      <text x="295" y="238" text-anchor="middle" class="sm">may proactively ask the user to clarify</text>
+    </svg>
+  </div>
+  <div class="demo-chip">python3 demo/run.py 1 — loop fixes a real failing test, then re-verifies</div>
+  <aside class="notes">
+    <p>The goal-oriented cycle: plan → execute → observe/test → improve → execute again, until the goal is met. Same simplified loop as OpenAI's Codex agent diagram and Karpathy's autoresearch repo.</p>
+    <p>Key line from the article: models analyze trajectories and failure cases through an agent runtime, not a static prompt template. The loop is what makes "observe before you claim success" enforceable.</p>
+    <p>DEMO 1: sandbox repo with a buggy median(); scripted model, real files, real test run. The harness re-runs the tests itself at the end — never trust the model's claim.</p>
+  </aside>
+</section>
+
+<!-- 6 · PATTERN 2 -->
+<section class="slide" data-eyebrow="pattern 2 / 3">
+  <div class="eyebrow">Design pattern 2 of 3</div>
+  <h2>File system as persistent memory</h2>
+  <div class="cols">
+    <div class="col">
+      <ul class="points">
+        <li>Long-horizon work generates <strong>artifacts</strong> — logs, diffs, summaries, error traces — that outgrow any context window.</li>
+        <li>Context = <em>working memory</em> (fast, small, evicted). Disk = <em>long-term memory</em> (durable, searchable, cheap).</li>
+        <li>File ops are a <strong>core LLM skill</strong> — so better models manage their own memory better, for free.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="diagram">
+      <svg viewBox="0 0 420 250">
+        <rect x="20" y="20" width="380" height="86" class="box"/>
+        <text x="40" y="46" class="lbl acc">context window</text>
+        <rect x="40" y="60" width="70" height="30" class="boxc"/><text x="75" y="80" text-anchor="middle" class="sm">turn n-2</text>
+        <rect x="120" y="60" width="70" height="30" class="boxc"/><text x="155" y="80" text-anchor="middle" class="sm">turn n-1</text>
+        <rect x="200" y="60" width="70" height="30" class="boxc"/><text x="235" y="80" text-anchor="middle" class="sm">turn n</text>
+        <text x="330" y="80" class="sm" fill="#D9705F">← older turns evicted</text>
+
+        <rect x="20" y="160" width="380" height="70" class="boxa"/>
+        <text x="40" y="186" class="lbl acc">disk</text>
+        <text x="110" y="186" class="sm">NOTES.md · PLAN.md · findings/ · logs/</text>
+        <text x="110" y="208" class="sm">survives compaction, resets, new sessions</text>
+
+        <path class="wirea" marker-end="url(#ar-a)" d="M140,106 L140,156"/>
+        <text x="148" y="136" class="sm acc">journal findings</text>
+        <path class="wirec" marker-end="url(#ar-c)" d="M300,156 L300,106"/>
+        <text x="308" y="136" class="sm cy">read to recover</text>
+      </svg>
+      </div>
+    </div>
+  </div>
+  <div class="demo-chip">python3 demo/run.py 2 — same task twice; only the journaled run survives a context reset</div>
+  <aside class="notes">
+    <p>Problem: agentic jobs produce more state than fits in context. Solution: durable file-based state instead of carrying the whole workflow in the window.</p>
+    <p>DEMO 2 is an A/B: an audit task with a 3-message window. Run A keeps findings in context only — they literally scroll out, and the final answer is wrong. Run B journals to NOTES.md, gets hard-reset mid-task, then a *fresh session* reads the notes and finishes correctly.</p>
+    <p>This is exactly why Claude Code writes CLAUDE.md, plans, and scratchpads to disk.</p>
+  </aside>
+</section>
+
+<!-- 7 · PATTERN 3 -->
+<section class="slide" data-eyebrow="pattern 3 / 3">
+  <div class="eyebrow">Design pattern 3 of 3</div>
+  <h2>Sub-agents and background jobs</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 305">
+      <rect x="40" y="105" width="170" height="66" class="boxa"/>
+      <text x="125" y="132" text-anchor="middle" class="lbl acc">orchestrator</text>
+      <text x="125" y="152" text-anchor="middle" class="sm">spawn · monitor · merge</text>
+
+      <rect x="330" y="20" width="180" height="54" class="boxc"/>
+      <text x="420" y="43" text-anchor="middle" class="lbl cy">sub-agent A</text>
+      <text x="420" y="61" text-anchor="middle" class="sm">hypothesis: logs</text>
+      <rect x="330" y="113" width="180" height="54" class="boxc"/>
+      <text x="420" y="136" text-anchor="middle" class="lbl cy">sub-agent B</text>
+      <text x="420" y="154" text-anchor="middle" class="sm">hypothesis: code</text>
+      <rect x="330" y="206" width="180" height="54" class="boxc"/>
+      <text x="420" y="229" text-anchor="middle" class="lbl cy">sub-agent C</text>
+      <text x="420" y="247" text-anchor="middle" class="sm">hypothesis: data</text>
+
+      <rect x="610" y="99" width="210" height="78" class="box"/>
+      <text x="715" y="126" text-anchor="middle" class="lbl acc">findings/*.md</text>
+      <text x="715" y="146" text-anchor="middle" class="sm">files, not chat transcripts —</text>
+      <text x="715" y="162" text-anchor="middle" class="sm">explicit &amp; inspectable</text>
+
+      <path class="wirec" marker-end="url(#ar-c)" d="M210,120 C270,90 280,55 326,47"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M210,138 L326,139"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M210,158 C270,190 280,225 326,233"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M510,47 C560,55 570,95 606,110"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M510,139 L606,138"/>
+      <path class="wire" marker-end="url(#ar-m)" d="M510,233 C560,225 570,185 606,168"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M715,177 C715,300 200,300 128,177"/>
+      <text x="715" y="88" text-anchor="middle" class="sm acc">fan-in: 3 short files, not 3 full contexts</text>
+    </svg>
+  </div>
+  <div class="demo-chip">python3 demo/run.py 3 — three real threads triangulate a production bug</div>
+  <aside class="notes">
+    <p>Use cases from the article: searching multiple hypotheses, concurrent experiments, delegating isolated subtasks — without polluting the main context.</p>
+    <p>The critical design choice: parallelism is explicit and inspectable through file-based storage rather than transient chat contexts. The parent manages jobs like processes: launch, inspect logs, cancel, merge.</p>
+    <p>DEMO 3: a crash-looping payment worker. Three sub-agents (real threads) check logs, code, and queue data in parallel; each writes findings/*.md; the orchestrator synthesizes the root cause from the three files.</p>
+  </aside>
+</section>
+
+<!-- 8 · CASE STUDY -->
+<section class="slide" data-eyebrow="case study">
+  <div class="eyebrow">Case study</div>
+  <h2>The coding-agent tool surface has stabilized</h2>
+  <table>
+    <tr><th>category</th><th>tools</th><th>gives the model</th></tr>
+    <tr><td class="mono">file system</td><td class="mono" style="color:var(--text)">glob · grep · ls · read · write · edit · apply_patch</td><td>eyes and hands in the repo</td></tr>
+    <tr><td class="mono">shell</td><td class="mono" style="color:var(--text)">bash</td><td>run anything, observe exit codes</td></tr>
+    <tr><td class="mono">io / vcs</td><td class="mono" style="color:var(--text)">lsp · git_status · git_diff · git_commit</td><td>ground truth about the change</td></tr>
+    <tr><td class="mono">external context</td><td class="mono" style="color:var(--text)">MCP tools · skills</td><td>org-specific capability</td></tr>
+    <tr><td class="mono">web</td><td class="mono" style="color:var(--text)">web_search · web_fetch · browser</td><td>fresh knowledge</td></tr>
+    <tr><td class="mono">background</td><td class="mono" style="color:var(--text)">cron_create · cron_list · cron_delete</td><td>work that outlives the session</td></tr>
+    <tr><td class="mono">delegation</td><td class="mono" style="color:var(--text)">spawn_agent · wait_agent · interrupt_agent</td><td>parallel selves</td></tr>
+  </table>
+  <p style="margin-top:16px; color:var(--muted); font-size:15px">Claude Code, Codex, OpenCode, Cursor — different products, <strong>same interface shape</strong>. That convergence is what makes the harness itself optimizable.</p>
+  <aside class="notes">
+    <p>Weng's case study: mainstream coding agents converged on one loop plus roughly this tool taxonomy. It's the same equipment a human developer has in an IDE + terminal.</p>
+    <p>The convergence matters strategically: once the interface is stable, the harness becomes a well-defined search space — which sets up the entire second half of the talk.</p>
+  </aside>
+</section>
+
+<!-- 9 · LADDER -->
+<section class="slide" data-eyebrow="part two">
+  <div class="eyebrow">Part two — harness optimization</div>
+  <h2>The optimization ladder: what we tune keeps moving up</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 300">
+      <rect x="30"  y="230" width="150" height="52" class="box"/>
+      <text x="105" y="252" text-anchor="middle" class="lbl">instruction</text>
+      <text x="105" y="270" text-anchor="middle" class="lbl">prompts</text>
+      <rect x="195" y="180" width="150" height="52" class="box"/>
+      <text x="270" y="202" text-anchor="middle" class="lbl">structured</text>
+      <text x="270" y="220" text-anchor="middle" class="lbl">context</text>
+      <rect x="360" y="130" width="150" height="52" class="box"/>
+      <text x="435" y="160" text-anchor="middle" class="lbl">workflow</text>
+      <rect x="525" y="80" width="150" height="52" class="boxa"/>
+      <text x="600" y="102" text-anchor="middle" class="lbl acc">harness</text>
+      <text x="600" y="120" text-anchor="middle" class="lbl acc">code</text>
+      <rect x="690" y="30" width="150" height="52" class="boxa"/>
+      <text x="765" y="52" text-anchor="middle" class="lbl acc">optimizer</text>
+      <text x="765" y="70" text-anchor="middle" class="lbl acc">code</text>
+
+      <path class="wirea" marker-end="url(#ar-a)" d="M180,240 L215,222"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M345,190 L380,172"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M510,140 L545,122"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M675,90 L710,72"/>
+
+      <text x="105" y="215" text-anchor="middle" class="sm">prompt engineering</text>
+      <text x="270" y="165" text-anchor="middle" class="sm">ACE</text>
+      <text x="435" y="115" text-anchor="middle" class="sm">ADAS · AFlow · AI Scientist</text>
+      <text x="600" y="65"  text-anchor="middle" class="sm">Self-Harness · DGM</text>
+      <text x="765" y="15"  text-anchor="middle" class="sm">STOP · Meta-Harness · MCE</text>
+      <text x="435" y="292" text-anchor="middle" class="sm acc">each rung climbable only as models get smarter — the object of optimization is meta-methodology</text>
+    </svg>
+  </div>
+  <aside class="notes">
+    <p>The article's progression: instruction prompts → structured context → workflow → harness code → optimizer code. Each step raises the abstraction: from tuning answers, to tuning the machinery that produces answers, to tuning the machinery that improves the machinery.</p>
+    <p>Her prediction: harness engineering becomes meta-methodology — fewer heuristics, more general mechanisms — and mature harnesses enable auto-research loops while smarter models prevent over-engineering.</p>
+  </aside>
+</section>
+
+<!-- 10 · ACE -->
+<section class="slide" data-eyebrow="context engineering">
+  <div class="eyebrow">Rung: structured context</div>
+  <h2>ACE — context as an evolving playbook, not a longer prompt</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 260">
+      <rect x="40" y="90" width="180" height="70" class="boxc"/>
+      <text x="130" y="118" text-anchor="middle" class="lbl cy">generator</text>
+      <text x="130" y="138" text-anchor="middle" class="sm">runs tasks using the playbook</text>
+
+      <rect x="340" y="90" width="180" height="70" class="boxc"/>
+      <text x="430" y="118" text-anchor="middle" class="lbl cy">reflector</text>
+      <text x="430" y="138" text-anchor="middle" class="sm">distills insights from wins &amp; failures</text>
+
+      <rect x="640" y="90" width="180" height="70" class="boxc"/>
+      <text x="730" y="118" text-anchor="middle" class="lbl cy">curator</text>
+      <text x="730" y="138" text-anchor="middle" class="sm">merges itemized bullet updates</text>
+
+      <path class="wirec" marker-end="url(#ar-c)" d="M220,125 L336,125"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M520,125 L636,125"/>
+      <text x="278" y="115" text-anchor="middle" class="sm">trajectories</text>
+      <text x="578" y="115" text-anchor="middle" class="sm">insights</text>
+
+      <rect x="290" y="200" width="280" height="46" class="boxa"/>
+      <text x="430" y="228" text-anchor="middle" class="lbl acc">playbook: (id, bullet) items</text>
+      <path class="wirea" marker-end="url(#ar-a)" d="M730,160 C730,225 600,223 574,223"/>
+      <path class="wirea" marker-end="url(#ar-a)" d="M286,223 C160,223 130,205 130,164"/>
+      <text x="430" y="30" text-anchor="middle" class="sm">deterministic merge of (identifier, description) bullets — never “rewrite the whole prompt blob”</text>
+      <text x="430" y="52" text-anchor="middle" class="sm acc">prevents context collapse &amp; brevity bias · items deduped and refined periodically</text>
+    </svg>
+  </div>
+  <aside class="notes">
+    <p>Agentic Context Engineering (Zhang et al., ICLR 2026). Three roles: generator produces trajectories referencing playbook bullets; reflector extracts lessons from successes AND failures; curator merges structured (id, description) updates with deterministic logic.</p>
+    <p>The design insight: incremental itemized updates instead of LLM-rewriting one big prompt — rewriting causes context collapse (good content silently lost) and brevity bias. Treat context like a database, not a blob.</p>
+  </aside>
+</section>
+
+<!-- 11 · MCE / META-HARNESS -->
+<section class="slide" data-eyebrow="meta-optimization">
+  <div class="eyebrow">Rung: optimizer code</div>
+  <h2>MCE &amp; Meta-Harness — optimize the mechanism, not the artifact</h2>
+  <div class="cols">
+    <div class="col">
+      <p class="eyebrow" style="color:var(--cyan)">meta context engineering · ye 2026</p>
+      <div class="codebox">inner: c*ₛ = argmax_c J_train(c; s)
+<span class="c">       best context, given skill s</span>
+outer: s*  = argmax_s J_val(c*ₛ)
+<span class="c">       best skill, on held-out val</span>
+
+skill s = ρₛ <span class="c">static: prompts, kb, libs</span>
+        + Fₛ <span class="c">dynamic: search/filter/format</span></div>
+      <p style="margin-top:12px; font-size:14px; color:var(--muted)">Skills stored as files (skill.md + code); a meta-agent evolves them by crossover over the skill database.</p>
+    </div>
+    <div class="col">
+      <p class="eyebrow" style="color:var(--cyan)">meta-harness · lee 2026</p>
+      <ul class="points">
+        <li>A <strong>proposer coding agent</strong> writes new harnesses as code — a harness for optimizing harnesses.</li>
+        <li>Full execution history lives on the <em>file system</em>; agents grep/cat it rather than stuffing one prompt.</li>
+        <li>Each candidate = {source, scores, trajectories}; keep the <strong>Pareto frontier</strong>.</li>
+        <li>Improved on TerminalBench-2 even starting from strong baselines (Terminus-KIRA, Terminus-2).</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <p>MCE separates the mechanism (how context is managed) from the artifact (the context items). Bi-level optimization: inner loop learns the best context for a given skill; outer loop evolves the skills themselves against validation performance. Skills = static components + dynamic operators, instantiated as file collections, edited with the standard tool set {Read, Write, Edit, Bash, Glob, Grep, TodoWrite} — literally the Claude Code toolkit.</p>
+    <p>Meta-Harness closes the loop: once harness design is an executable search space, a strong coding agent can explore it the way human engineers do. Output is a Pareto frontier of harnesses, not a single winner.</p>
+  </aside>
+</section>
+
+<!-- 12 · WORKFLOW DESIGN -->
+<section class="slide" data-eyebrow="workflow design">
+  <div class="eyebrow">Rung: workflow</div>
+  <h2>Expert-designed workflows: automating research itself</h2>
+  <div class="diagram" style="flex:0 0 auto; margin-bottom:14px">
+    <svg viewBox="0 0 860 88">
+      <g class="lbl">
+        <rect x="10"  y="18" width="120" height="46" class="boxc"/><text x="70"  y="46" text-anchor="middle" class="sm" fill="#E8E6DF">propose ideas</text>
+        <rect x="150" y="18" width="120" height="46" class="boxc"/><text x="210" y="46" text-anchor="middle" class="sm" fill="#E8E6DF">write code</text>
+        <rect x="290" y="18" width="120" height="46" class="boxc"/><text x="350" y="46" text-anchor="middle" class="sm" fill="#E8E6DF">run experiments</text>
+        <rect x="430" y="18" width="120" height="46" class="boxc"/><text x="490" y="46" text-anchor="middle" class="sm" fill="#E8E6DF">analyze results</text>
+        <rect x="570" y="18" width="120" height="46" class="boxc"/><text x="630" y="46" text-anchor="middle" class="sm" fill="#E8E6DF">write manuscript</text>
+        <rect x="710" y="18" width="120" height="46" class="boxc"/><text x="770" y="46" text-anchor="middle" class="sm" fill="#E8E6DF">peer review</text>
+      </g>
+      <path class="wirec" marker-end="url(#ar-c)" d="M130,41 L146,41"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M270,41 L286,41"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M410,41 L426,41"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M550,41 L566,41"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M690,41 L706,41"/>
+      <text x="430" y="82" text-anchor="middle" class="sm">AI Scientist (Lu et al., Nature 2026) — end-to-end research pipeline</text>
+    </svg>
+  </div>
+  <dl class="kv">
+    <dt>ScientistOne</dt><dd>Verifiability as the design constraint: every claim — citation, number, method, conclusion — must trace to evidence via <em>Chain-of-Evidence</em> checks.</dd>
+    <dt>Autodata</dt><dd>Agent manages a <strong>challenger</strong>, a <strong>weak solver</strong>, a <strong>strong solver</strong>, and a <strong>verifier</strong> to synthesize training data at "just right" difficulty: strong succeeds, weak fails.</dd>
+  </dl>
+  <p style="margin-top:14px; font-size:14px; color:var(--muted)">Caveat: Autodata's synthesized tasks improve the <em>weak</em> solver — indirect distillation, not yet full self-improvement.</p>
+  <aside class="notes">
+    <p>These are handcrafted-by-experts workflows — the rung below self-modifying harnesses. AI Scientist runs the whole pipeline; it landed in Nature 2026, but note the later slide: producing papers is not the same as producing discoveries.</p>
+    <p>Autodata's difficulty targeting is a lovely trick: a task is "just right" for training when the strong solver passes and the weak one fails. The challenger's prompt is iteratively updated from solver+verifier feedback. But the gains flow to the weak solver — that's distillation, not RSI.</p>
+  </aside>
+</section>
+
+<!-- 13 · ADAS / AFLOW -->
+<section class="slide" data-eyebrow="search over workflows">
+  <div class="eyebrow">Rung: workflow — searched, not handcrafted</div>
+  <h2>ADAS &amp; AFlow: agent design as a search problem</h2>
+  <div class="cols">
+    <div class="col">
+      <p class="eyebrow" style="color:var(--cyan)">ADAS · hu, lu &amp; clune 2025</p>
+      <ul class="points">
+        <li>A <strong>meta-agent programs new agents in code</strong>, drawing inspiration from an archive of prior designs.</li>
+        <li>Seed archive with simple agents (CoT, self-refine); describe → implement → two self-refine novelty checks.</li>
+        <li>Evaluate; successful designs join the archive; repeat.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <p class="eyebrow" style="color:var(--cyan)">AFlow · zhang 2025</p>
+      <ul class="points">
+        <li>Workflow = <strong>graph</strong>: nodes are LLM calls, edges are code logic.</li>
+        <li>Optimized with <strong>MCTS</strong>: select a node balancing score vs exploration, expand with an LLM-modified workflow, execute, evaluate, keep if better.</li>
+        <li>Beats manual designs and ADAS on QA, code, and math benchmarks.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <p>ADAS formulates agent design itself as the optimization problem — "meta agent search". The archive plays the role of an evolutionary population; novelty checks fight duplication.</p>
+    <p>AFlow makes the search space crisp: workflows as graphs, searched with Monte Carlo Tree Search under an N-round budget. Selection balances exploitation of good workflows with exploration.</p>
+    <p>Bridge to next slides: workflows are still *structures around* a fixed harness. The next move is letting the system edit the harness code itself.</p>
+  </aside>
+</section>
+
+<!-- 14 · SELF-HARNESS -->
+<section class="slide" data-eyebrow="self-improving harness">
+  <div class="eyebrow">Rung: harness code</div>
+  <h2>Self-Harness: propose → evaluate → accept, with a regression gate</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 860 250">
+      <rect x="30" y="60" width="230" height="82" class="boxc"/>
+      <text x="145" y="88" text-anchor="middle" class="lbl cy">1 · weakness mining</text>
+      <text x="145" y="108" text-anchor="middle" class="sm">evaluate tasks under h_t,</text>
+      <text x="145" y="124" text-anchor="middle" class="sm">cluster failures by root cause</text>
+
+      <rect x="315" y="60" width="230" height="82" class="boxc"/>
+      <text x="430" y="88" text-anchor="middle" class="lbl cy">2 · bounded proposal</text>
+      <text x="430" y="108" text-anchor="middle" class="sm">same model proposes narrow,</text>
+      <text x="430" y="124" text-anchor="middle" class="sm">reviewable harness edits</text>
+
+      <rect x="600" y="60" width="230" height="82" class="boxa"/>
+      <text x="715" y="88" text-anchor="middle" class="lbl acc">3 · validation</text>
+      <text x="715" y="108" text-anchor="middle" class="sm">held-in D_in must improve</text>
+      <text x="715" y="124" text-anchor="middle" class="sm">held-out D_out must not regress</text>
+
+      <path class="wirec" marker-end="url(#ar-c)" d="M260,101 L311,101"/>
+      <path class="wirec" marker-end="url(#ar-c)" d="M545,101 L596,101"/>
+      <path class="wireg" marker-end="url(#ar-g)" d="M715,142 C715,208 300,208 148,146"/>
+      <text x="430" y="230" text-anchor="middle" class="sm" fill="#6FBF73">accept → merge into h_t+1, loop again</text>
+      <path class="wireb" marker-end="url(#ar-b)" d="M830,142 C852,168 838,184 800,184"/>
+      <text x="792" y="204" text-anchor="end" class="sm" fill="#D9705F">reject → log it, harness unchanged</text>
+      <text x="430" y="30" text-anchor="middle" class="sm">Zhang et al. 2026 — LLM agents improve their own harness · precursor: STOP (Zelikman 2023), the improver improving itself</text>
+    </svg>
+  </div>
+  <div class="demo-chip">python3 demo/run.py 4 — watch a reward-hack proposal get caught by the held-out gate</div>
+  <aside class="notes">
+    <p>Three stages: (1) weakness mining — cluster failures into verifier-grounded patterns, root causes not surface errors; (2) bounded proposals — the same model, given editable harness surfaces + failure patterns + past attempts, prefers narrow recurrent fixes; (3) validation on held-in AND held-out, accept only with no regression.</p>
+    <p>STOP (Zelikman 2023) is the ancestor: an improver program that improves itself, judged by meta-utility averaged over tasks. It discovered genetic algorithms, beam search, simulated annealing on its own.</p>
+    <p>DEMO 4 runs this loop for real: a candidate rule that hardcodes "USD" aces the held-in suite (6/6!) but regresses held-out non-USD cases — rejected. The gate, not good intentions, catches the hack.</p>
+  </aside>
+</section>
+
+<!-- 15 · EVOLUTION -->
+<section class="slide" data-eyebrow="evolutionary search">
+  <div class="eyebrow">Rung: harness code — population-scale</div>
+  <h2>Evolutionary search: survival of the fittest diff</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="codebox"><span class="c">wire the loop:</span>
+pool ← candidate programs
+repeat:
+  parent ← sample(pool)     <span class="c"># rank ∝ fitness,</span>
+                            <span class="c"># penalize offspring count</span>
+  child  ← LLM_diff(parent) <span class="c"># mutation</span>
+  score  ← evaluate(child)  <span class="c"># run it for real</span>
+  pool   ← keep_fittest(pool + child)
+
+<span class="a"># EVOLVE-BLOCK-START</span>
+<span class="g">…only this region is mutable…</span>
+<span class="a"># EVOLVE-BLOCK-END</span></div>
+    </div>
+    <div class="col">
+      <dl class="kv">
+        <dt>AlphaEvolve</dt><dd>Frozen LLM proposes diffs to a program pool; meta-prompts co-evolve. New math &amp; algorithm discoveries.</dd>
+        <dt>ShinkaEvolve</dt><dd>Sample-efficiency: smart parent sampling, embedding-based novelty rejection, a meta-scratchpad of winning patterns.</dd>
+        <dt>Darwin Gödel Machine</dt><dd>The agent evolves <strong>its own harness repo</strong>. SWE-bench Verified <span class="num">20% → 50%</span>, Polyglot <span class="num">14.2% → 30.7%</span>.</dd>
+      </dl>
+      <p style="margin-top:14px; font-size:14px; color:var(--muted)">Works when fitness is fast &amp; objective (kernels, contests, schedulers). Struggles when evaluation is slow, ambiguous, or a vibe.</p>
+    </div>
+  </div>
+  <div class="demo-chip">python3 demo/run.py 5 — evolve real code in an EVOLVE-BLOCK until MSE = 0</div>
+  <aside class="notes">
+    <p>Evolutionary search fits harness optimization because the space is huge and weirdly shaped, gradients don't exist, but evaluation is cheap. Lineage: Promptbreeder and GEPA did this for prompts; AlphaEvolve for programs; DGM for the agent's own harness code.</p>
+    <p>DGM's numbers are the headline: agents that rewrote their own scaffolding went from 20% to 50% on SWE-bench Verified — matching or beating hand-crafted agents.</p>
+    <p>DEMO 5: symbolic regression — mutate the EVOLVE-BLOCK, exec the program, score MSE against examples, select. Converges to the exact hidden formula around generation 30. Emphasize: seeded, deterministic, every candidate genuinely executed.</p>
+  </aside>
+</section>
+
+<!-- 16 · CAVEAT -->
+<section class="slide" data-eyebrow="the caveat">
+  <div class="eyebrow">The caveat that keeps everyone honest</div>
+  <h2>Recursion needs a strong base model</h2>
+  <div class="cols">
+    <div class="col">
+      <ul class="points">
+        <li><strong>STOP's key finding:</strong> the self-improving improver worked with GPT-4 — and <em>degraded</em> with GPT-3.5 and Mixtral.</li>
+        <li>Harness improvement multiplies capability; it cannot substitute for it.</li>
+        <li>Long term, many harness tricks may <em>internalize</em> into model behavior — as prompt engineering did after instruction tuning — but tool interfaces and external context will remain.</li>
+      </ul>
+    </div>
+    <div class="col narrow">
+      <div class="codebox">capability = model^harness
+
+<span class="c">weak model, great harness:</span>
+<span class="c">  loops forever, confidently</span>
+<span class="a">strong model, great harness:</span>
+<span class="a">  compounding improvement</span></div>
+    </div>
+  </div>
+  <aside class="notes">
+    <p>This is the slide to slow down on. STOP improved recursively only above a capability threshold; below it, self-modification made things worse. So "just add a better harness" is not a free lunch — the two layers gate each other.</p>
+    <p>Weng's prediction: the harness layer and core intelligence co-evolve. Some patterns (like context compaction) may get absorbed into models, the way instruction tuning absorbed most prompt hacks — but you'll always need to specify goals and expose tools.</p>
+  </aside>
+</section>
+
+<!-- 17 · FAILURE MODES -->
+<section class="slide" data-eyebrow="reality check">
+  <div class="eyebrow">Reality check — autonomous research today</div>
+  <h2>Six recurring failure modes <span style="color:var(--muted); font-weight:400">(Trehan &amp; Chopra 2026: 4 ideas in, 1 paper out)</span></h2>
+  <div class="cols">
+    <div class="col">
+      <ul class="points">
+        <li><strong>Training-data defaults</strong> — old libraries, stale commands, assumptions never checked against the actual repo.</li>
+        <li><strong>Implementation drift</strong> — under pressure, the model quietly swaps the proposed method for a familiar simpler one.</li>
+        <li><strong>Context degradation</strong> — long-horizon detail lost without persistent artifact logging.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <ul class="points">
+        <li><strong>Over-optimism</strong> — “p-hacking and eureka-ing”: numerical duct tape, victory declared amid noise.</li>
+        <li><strong>Missing domain intelligence</strong> — no tacit craft: complexity estimates, plausibility checks, relevant baselines.</li>
+        <li><strong>Weak scientific taste</strong> — experiments run, but the <em>right questions</em> never get asked.</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:18px; font-size:15px; color:var(--muted)">Producing a plausible manuscript ≠ producing a discovery. Fabricated citations, drifted implementations, and weak results all still compile.</p>
+  <aside class="notes">
+    <p>Trehan & Chopra gave LLMs minimal scaffolding (read_file, write_file, llm_search, list_files) and asked them to go idea → paper. One of four ideas made it. These six patterns explain the gap.</p>
+    <p>The "p-hacking and eureka-ing" phrase is from Bubeck et al. 2025 (GPT-5 science-acceleration experiments). Engineers will recognize every one of these from code agents too — same pathologies, different domain.</p>
+    <p>Note how failure modes 1–4 are harness-addressable (grounding, journaling, verification), while 5–6 are capability gaps. That maps back to the caveat slide.</p>
+  </aside>
+</section>
+
+<!-- 18 · BOTTLENECKS -->
+<section class="slide" data-eyebrow="open problems">
+  <div class="eyebrow">Open problems</div>
+  <h2>Seven bottlenecks between here and full RSI</h2>
+  <div style="columns:2; column-gap:40px">
+    <ol style="font-size:15.5px; line-height:1.45; padding-left:22px; display:block">
+      <li style="margin-bottom:9px"><strong>Weak, fuzzy evaluators</strong> — most real tasks lack a fast, precise verifier; loops need one to function.</li>
+      <li style="margin-bottom:9px"><strong>Context &amp; memory lifecycle</strong> — memory should become core intelligence, not a bolted-on subsystem.</li>
+      <li style="margin-bottom:9px"><strong>Negative results</strong> — literature (and training data) hides failures; agents must learn to abandon hypotheses.</li>
+      <li style="margin-bottom:9px"><strong>Diversity collapse</strong> — evolution and RL exploit known winners; open-ended research needs paths that look worse first.</li>
+      <li style="margin-bottom:9px"><strong>Reward hacking</strong> — evaluators &amp; permissions must live <em>outside</em> the loop: held-out tests, trace audits, human review.</li>
+      <li style="margin-bottom:9px"><strong>Long-term goals</strong> — repo health, migrations, ownership: rarely capturable in sandboxed RL rewards.</li>
+      <li style="margin-bottom:9px"><strong>The role of humans</strong> — move <em>up the stack</em>, not out of the loop: oversight at the right abstraction and timing.</li>
+    </ol>
+  </div>
+  <aside class="notes">
+    <p>These are Weng's closing seven. Themes to draw out for an engineering audience:</p>
+    <p>#1 and #5 are two sides of one coin — the loop is only as good as its judge, and the judge must be un-gameable and un-editable by the thing being judged (demo 4 showed a miniature of this).</p>
+    <p>#4: mechanisms like novelty rejection (ShinkaEvolve) and archive sampling (ADAS/DGM) exist precisely to fight collapse.</p>
+    <p>#6 hits home: coding agents boost daily productivity, but "keep a 1000-engineer repo healthy for five years" is not yet an optimizable reward.</p>
+    <p>#7 is the article's closing note: technology should serve humanity's better future, not vice versa.</p>
+  </aside>
+</section>
+
+<!-- 19 · BENCHMARKS -->
+<section class="slide" data-eyebrow="appendix">
+  <div class="eyebrow">Appendix — how progress is measured</div>
+  <h2>Benchmarks for research-capable agents</h2>
+  <table>
+    <tr><th>benchmark</th><th>task</th><th>headline number</th></tr>
+    <tr><td class="mono">PaperBench</td><td>replicate 20 ICML-2024 papers, 8,316 author-built rubrics</td><td class="num">Claude 3.5 Sonnet ≈ 21% — below ML PhDs</td></tr>
+    <tr><td class="mono">CORE-Bench</td><td>computational reproducibility, 270 tasks / 90 papers</td><td class="num">GPT-4o ≈ 21% on hardest split</td></tr>
+    <tr><td class="mono">RE-Bench</td><td>7 open ML-research environments vs 61 human experts</td><td class="num">agents 4× humans @ 2h; humans win @ 8–32h</td></tr>
+    <tr><td class="mono">MLE-bench</td><td>75 offline Kaggle competitions, public leaderboards</td><td class="num">o1-preview + AIDE: bronze in 16.9%</td></tr>
+    <tr><td class="mono">KernelBench</td><td>250 PyTorch → GPU-kernel tasks, correctness + speed</td><td class="num">metric: fast_p (correct ∧ faster)</td></tr>
+    <tr><td class="mono">ScienceAgentBench</td><td>102 data-science tasks from 44 publications</td><td class="num">4 disciplines, end-to-end scripts</td></tr>
+  </table>
+  <p style="margin-top:14px; font-size:14px; color:var(--muted)">The RE-Bench crossover is the story: agents dominate short budgets, humans still win long horizons — exactly the long-horizon gap harnesses target.</p>
+  <aside class="notes">
+    <p>Don't read every row — point at RE-Bench. Agents are 4× better than human experts on a 2-hour budget (they type faster and try more things), but at 8 and 32 hours humans pull ahead. Long-horizon coherence is the open frontier, and it's a harness problem as much as a model problem: memory, state, sub-agents, evaluation.</p>
+  </aside>
+</section>
+
+<!-- 20 · TAKEAWAYS -->
+<section class="slide" data-eyebrow="takeaways">
+  <div class="eyebrow">Takeaways for working engineers</div>
+  <h2>What to steal for your own systems</h2>
+  <ul class="points" style="font-size:17px">
+    <li><strong>Build the loop first.</strong> Plan → act → observe → improve, with verification inside the loop — the loop enforces honesty, not the model.</li>
+    <li><strong>Put state on disk.</strong> Context is working memory; anything worth keeping goes to files the next session can read.</li>
+    <li><strong>Fan out through files.</strong> Sub-agents that report via artifacts stay inspectable; transcripts don't.</li>
+    <li><strong>Gate every self-modification.</strong> Held-out suites, bounded diffs, regression-or-reject — demo 4 in one line.</li>
+    <li><strong>Keep evaluators outside the blast radius.</strong> Whatever the loop optimizes, the judge must not be editable by it.</li>
+    <li><strong>Expect the ladder to keep climbing.</strong> Today you tune prompts; next quarter, the thing tuning the prompts.</li>
+  </ul>
+  <div class="byline" style="margin-top:20px">article: <b>lilianweng.github.io/posts/2026-07-04-harness</b> · demos: <b>python3 demo/run.py all</b></div>
+  <aside class="notes">
+    <p>Close by connecting to the room: everyone here already owns a harness, whether they call it that or not — CI, cron jobs, review gates around an LLM feature. The article's patterns are a checklist for hardening it.</p>
+    <p>Q&A seeds: Where would a held-out gate live in our pipeline? What's our equivalent of NOTES.md? Which of our eval signals could be reward-hacked?</p>
+  </aside>
+</section>
+
+</div>
+
+<div id="notes"><span class="tag">speaker notes — N to hide</span><div id="notes-body"></div></div>
+<div id="overview"><div class="grid" id="overview-grid"></div></div>
+<div id="bar"></div>
+<div id="hud"></div>
+<div id="help">← → navigate · N notes · O overview</div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var hud = document.getElementById("hud");
+  var bar = document.getElementById("bar");
+  var notes = document.getElementById("notes");
+  var notesBody = document.getElementById("notes-body");
+  var overview = document.getElementById("overview");
+  var grid = document.getElementById("overview-grid");
+  var current = 0;
+
+  slides.forEach(function (slide, i) {
+    var foot = document.createElement("div");
+    foot.className = "foot";
+    foot.innerHTML = "<span>harness engineering — lilian weng · jul 2026</span><span>" +
+      (i + 1) + " / " + slides.length + "</span>";
+    slide.appendChild(foot);
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.tabIndex = 0;
+    var title = slide.querySelector("h1, h2");
+    card.innerHTML = '<div class="n">' + String(i + 1).padStart(2, "0") + '</div>' +
+      '<div class="e">' + (slide.dataset.eyebrow || "") + '</div>' +
+      '<div class="t">' + (title ? title.textContent : "") + '</div>';
+    card.addEventListener("click", function () { toggleOverview(false); show(i); });
+    card.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { toggleOverview(false); show(i); }
+    });
+    grid.appendChild(card);
+  });
+
+  function show(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function (s, j) { s.classList.toggle("active", j === current); });
+    hud.textContent = (current + 1) + " / " + slides.length;
+    bar.style.width = (100 * (current + 1) / slides.length) + "%";
+    var aside = slides[current].querySelector("aside.notes");
+    notesBody.innerHTML = aside ? aside.innerHTML : "<p>(no notes)</p>";
+    location.hash = "#/" + (current + 1);
+  }
+
+  function toggleNotes() { notes.classList.toggle("open"); }
+  function toggleOverview(force) {
+    var open = typeof force === "boolean" ? force : !overview.classList.contains("open");
+    overview.classList.toggle("open", open);
+  }
+
+  function fit() {
+    var scale = Math.min(window.innerWidth / 990, window.innerHeight / 580);
+    slides.forEach(function (s) { s.style.setProperty("--scale", Math.min(scale, 1.6)); });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(current + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(current - 1); }
+    else if (e.key === "Home") { show(0); }
+    else if (e.key === "End") { show(slides.length - 1); }
+    else if (e.key === "n" || e.key === "N") { toggleNotes(); }
+    else if (e.key === "o" || e.key === "O") { toggleOverview(); }
+    else if (e.key === "Escape") { toggleOverview(false); }
+  });
+  document.getElementById("stage").addEventListener("click", function (e) {
+    if (window.getSelection().toString()) return;
+    show(current + (e.clientX > window.innerWidth / 2 ? 1 : -1));
+  });
+  window.addEventListener("resize", fit);
+
+  fit();
+  var start = parseInt((location.hash.match(/#\/(\d+)/) || [])[1], 10);
+  show(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>
