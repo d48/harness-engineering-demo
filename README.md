@@ -29,7 +29,12 @@ npm run demo:all -- --fast   # extra flags go after `--`
 ```
 
 Open `slides/harness-slides.html` in a browser for the presentation
-(arrow keys to navigate, `N` toggles speaker notes, `O` shows an overview grid).
+(arrow keys to navigate, `N` toggles speaker notes, `O` shows an overview grid),
+or launch it with:
+
+```bash
+npm run slides
+```
 
 ## The demos
 
@@ -62,6 +67,8 @@ demo/
   run.py               # menu / runner
 slides/
   harness-slides.html  # self-contained deck with diagrams (no dependencies)
+scripts/
+  open-slides.js       # cross-platform "open the deck in a browser" for `npm run slides`
 ```
 
 ## Presenting this
