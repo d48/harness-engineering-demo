@@ -79,6 +79,15 @@ def main() -> None:
         "DEMO 1 — The Agent Loop (workflow automation)",
         "plan -> act -> observe -> improve, until the goal is verifiably met",
     )
+    trace.intro(
+        what="The canonical coding-agent loop — plan, act, observe, improve — repeated "
+             "until a goal is verifiably met. It's the same loop shape shared by Claude "
+             "Code, Codex, OpenCode, and Cursor.",
+        watch="A sandboxed repo with a real bug and a real failing test. The scripted "
+              "'model' inspects the repo, runs the tests, finds the bug, patches it, and "
+              "re-runs the tests — then the harness independently re-checks the fix "
+              "before declaring success.",
+    )
     trace.note("The 'model' is a deterministic script; the tools and test run are real.")
 
     with tempfile.TemporaryDirectory(prefix="harness_demo1_") as ws:

@@ -110,6 +110,15 @@ def main() -> None:
         "DEMO 2 — File System as Persistent Memory",
         "same task, same tiny context window; the only difference is a notes file",
     )
+    trace.intro(
+        what="Why agent harnesses treat the file system as long-term memory instead of "
+             "relying on the context window, which is small and gets evicted.",
+        watch="The same audit task run twice under a tiny 3-message context window. Run "
+              "A (red) keeps its findings only in context and loses them once they scroll "
+              "out, finishing with an incomplete answer. Run B (green) journals findings "
+              "to NOTES.md, survives a hard context reset into a brand-new session, and "
+              "finishes with a correct report recovered entirely from disk.",
+    )
     run_without_memory()
     run_with_memory()
     trace.takeaway([

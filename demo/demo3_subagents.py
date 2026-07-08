@@ -100,6 +100,15 @@ def main() -> None:
         "DEMO 3 — Sub-agents in Parallel",
         "three hypotheses, three isolated agents, results merged via the file system",
     )
+    trace.intro(
+        what="How a harness fans work out to sub-agents and fans results back in without "
+             "polluting the parent's context — the pattern behind Claude Code's Agent "
+             "tool and background jobs.",
+        watch="Three sub-agents (real threads) investigate a crash-looping payment "
+              "service in parallel, each chasing a different hypothesis: logs, code, and "
+              "queue data. Each writes its findings to its own file; the orchestrator "
+              "then reads just those three short files and synthesizes the root cause.",
+    )
 
     with tempfile.TemporaryDirectory(prefix="harness_demo3_") as ws:
         toolbox = Toolbox(Path(ws))

@@ -73,6 +73,15 @@ def main() -> None:
         "DEMO 5 — Evolutionary Search over Program Code",
         "mutate the EVOLVE-BLOCK, execute, score, select — survival of the fittest diff",
     )
+    trace.intro(
+        what="Evolutionary search over real program code, in the style of AlphaEvolve "
+             "and the Darwin Gödel Machine — mutate, execute, measure, select, with no "
+             "gradients required.",
+        watch="A population of candidate expressions inside an EVOLVE-BLOCK is mutated, "
+              "executed, and scored generation after generation against a hidden "
+              "pricing formula. No LLM and no script — just mutation, real execution, "
+              "and selection — until it rediscovers the exact formula (MSE = 0).",
+    )
     trace.note("Hidden target: price(x) = x*x + 3x + 2   (the evolver only sees input/output pairs)")
     trace.note("Every candidate is real code, exec'd and scored on the examples (MSE).")
 

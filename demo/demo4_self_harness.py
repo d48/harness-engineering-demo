@@ -100,6 +100,16 @@ def main() -> None:
         "DEMO 4 — A Harness That Improves Itself",
         "weakness mining -> bounded proposal -> validation gate (held-in + held-out)",
     )
+    trace.intro(
+        what="A harness that improves itself: propose, evaluate, accept — guarded by a "
+             "held-out regression suite so the loop can't cheat its own judge. This is "
+             "the Self-Harness pattern.",
+        watch="A live, unscripted optimization loop that mines failures, proposes one "
+              "bounded rule change at a time, and only merges it if the held-in tests "
+              "improve and the held-out tests do not regress. One proposed rule is a "
+              "reward hack that aces the held-in suite — watch the held-out gate catch "
+              "and reject it.",
+    )
     trace.note("Nothing here is scripted: failures, proposals, and accept/reject are computed live.")
 
     harness: list[str] = ["strip_whitespace"]  # h_0: minimal starting harness

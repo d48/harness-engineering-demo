@@ -2,6 +2,7 @@
 
 import os
 import sys
+import textwrap
 import time
 
 RESET = "\033[0m"
@@ -52,6 +53,17 @@ class Trace:
         if subtitle:
             self._emit(paint(f"  {subtitle}", DIM))
         self._emit(paint("=" * width, BOLD))
+
+    def intro(self, what: str, watch: str) -> None:
+        self._emit()
+        self._emit(paint("  WHAT THIS IS", MAGENTA, BOLD))
+        for line in textwrap.wrap(what, width=70):
+            self._emit(f"    {line}")
+        self._emit()
+        self._emit(paint("  WHAT YOU'LL SEE", MAGENTA, BOLD))
+        for line in textwrap.wrap(watch, width=70):
+            self._emit(f"    {line}")
+        self._emit()
 
     def section(self, title: str) -> None:
         self._emit()
